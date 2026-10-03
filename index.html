@@ -50,17 +50,19 @@ input,textarea{background:var(--cd);border:1px solid var(--bd);border-radius:8px
 <div id="sheet"></div>
 <div id="msg"></div>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyB6SZAQNCSmadrDp-m8FbohI9fwFGhLkV8",
-  authDomain: "nippon-58bfa.firebaseapp.com",
-  projectId: "nippon-58bfa",
-  storageBucket: "nippon-58bfa.firebasestorage.app",
-  messagingSenderId: "837999625728",
-  appId: "1:837999625728:web:3989553cd69d36e6a47ae5"
+// ▼▼ Firebase 콘솔에서 복사한 firebaseConfig 값을 아래에 붙여넣으세요 ▼▼
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyB6SZAQNCSmadrDp-m8FbohI9fwFGhLkV8",
+  authDomain:"nippon-58bfa.firebaseapp.com",
+  projectId:"nippon-58bfa",
+  storageBucket:"nippon-58bfa.firebasestorage.app",
+  messagingSenderId:"837999625728",
+  appId:"1:837999625728:web:3989553cd69d36e6a47ae5"
 };
+// ▲▲ 여기까지 ▲▲
 const DEF=[{name:"라면",price:3500,cat:"분식"},{name:"김밥",price:3000,cat:"분식"},{name:"떡볶이",price:4000,cat:"분식"},{name:"어묵",price:2000,cat:"분식"},{name:"콜라",price:1500,cat:"음료"},{name:"아이스크림",price:1000,cat:"간식"}];
 const N=22;
-let mrd=false,db=null,orders=[],menu=DEF,view="1",sel=null,draft=null,armed=false,ro=false,busy=false,pend={},cat="전체",q="",built=null,ex=null,ac=null;
+let dbErr="",mrd=false,db=null,orders=[],menu=DEF,view="1",sel=null,draft=null,armed=false,ro=false,busy=false,pend={},cat="전체",q="",built=null,ex=null,ac=null;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const won=n=>(Number(n)||0).toLocaleString("ko-KR")+"원";
 const hm=t=>new Date(t).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
@@ -74,7 +76,7 @@ function render(){
   const cnt=f=>new Set(o1.filter(o=>o.floor===f).map(o=>o.table)).size;
   $("tabs").innerHTML=[["1","1층 ("+cnt(1)+")"],["2","2층 ("+cnt(2)+")"],["stat","누적"],["menu","메뉴 수정"]].map(([v,l])=>`<button data-a="v" data-v="${v}" class="${view===v?"on":""}">${l}</button>`).join("");
   const m=$("main");
-  if(!db){m.innerHTML='<div class="card">데이터베이스에 연결되지 않았어요. 파일 안의 FIREBASE_CONFIG에 Firebase 설정값을 붙여넣었는지, 인터넷에 연결돼 있는지 확인해 주세요.</div>'}
+  if(!db){m.innerHTML='<div class="card">데이터베이스에 연결되지 않았어요. 파일 안의 FIREBASE_CONFIG에 Firebase 설정값을 붙여넣었는지, 인터넷에 연결돼 있는지 확인해 주세요.<br><b>원인: '+esc(dbErr||"알 수 없음")+'</b></div>'}
   else if(view==="1"||view==="2"){
     const f=+view;let h=(ro?'<div class="card mu">보기 전용 계정이에요. 입력하려면 편집 권한이 필요해요.</div>':"")+'<div class="grid">';
     for(let t=1;t<=N;t++){const l=open(f,t);h+=`<button class="t ${l.length?"occ":""}" data-a="t" data-t="${t}"><b>${t}</b><small>${l.length?won(sum(l)):"비어있음"}</small></button>`}
@@ -173,10 +175,11 @@ document.addEventListener("click",async e=>{
 document.addEventListener("input",e=>{const t=e.target;if(draft&&t.dataset.i!==undefined)draft[+t.dataset.i][t.dataset.k]=t.value});
 render();
 try{
-  if(!FIREBASE_CONFIG.projectId)throw new Error("설정 없음");
+  if(typeof firebase==="undefined")throw new Error("Firebase 라이브러리를 불러오지 못했어요 (인터넷 연결, 광고 차단, 메신저 내부 브라우저 확인)");
+  if(!FIREBASE_CONFIG.projectId)throw new Error("FIREBASE_CONFIG의 projectId가 비어 있어요 (값이 안 들어갔거나 예전 파일이 배포된 상태)");
   firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();render();
   db.collection("orders").onSnapshot(s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>toast("연결 오류: "+e.message));
   db.collection("config").doc("menu").onSnapshot(s=>{if(s.exists&&s.data().items&&s.data().items.length){menu=s.data().items;if(view!=="menu")render()}},()=>{});
-}catch(e){db=null;render()}
+}catch(e){db=null;dbErr=e&&e.message||String(e);render()}
 </script>
 </body></html>
