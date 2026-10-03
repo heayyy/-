@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>매점 주문 관리</title>
+<style>
+:root{--bg:#f6f5f1;--cd:#fff;--tx:#1f1d1a;--mu:#7a756c;--ac:#d9480f;--ok:#2b8a3e;--bd:#e2ded5;--on:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1a18;--cd:#262421;--tx:#f1eee8;--mu:#a09a8e;--ac:#ff8a4c;--ok:#69db7c;--bd:#3a3732;--on:#1b1a18}}
+:root[data-theme="dark"]{--bg:#1b1a18;--cd:#262421;--tx:#f1eee8;--mu:#a09a8e;--ac:#ff8a4c;--ok:#69db7c;--bd:#3a3732;--on:#1b1a18}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--bd);background:var(--cd);border-radius:10px;padding:10px 12px}
+.tabs{display:flex;gap:6px;padding:10px;position:sticky;top:0;background:var(--bg);z-index:5;overflow-x:auto}
+.tabs button{flex:1;white-space:nowrap;font-weight:600}
+.tabs button.on,.chips button.on{background:var(--ac);color:var(--on);border-color:var(--ac)}
+.wrap{padding:6px 10px 80px;max-width:900px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px}
+.t{min-height:78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.t b{font-size:20px}.t small{color:var(--mu)}
+.t.occ{background:var(--ac);color:var(--on);border-color:var(--ac)}.t.occ small{color:var(--on);opacity:.9}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0}
+.row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+.mu{color:var(--mu)}
+.big{font-size:24px;font-weight:700}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sh{background:var(--bg);width:100%;max-width:640px;height:92%;overflow-y:auto;border-radius:16px 16px 0 0;padding:12px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0}
+.chips button{white-space:nowrap;padding:7px 12px;border-radius:20px}
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.mg button{position:relative;padding:12px 4px;display:flex;flex-direction:column;gap:2px;font-weight:600;font-size:15px;min-height:68px;justify-content:center}
+.mg small{color:var(--mu);font-weight:400;font-size:13px}
+.bd{position:absolute;top:3px;right:3px;background:var(--ac);color:var(--on);border-radius:10px;min-width:22px;padding:0 6px;font-size:13px}
+.bar{position:sticky;bottom:0;background:var(--bg);padding:8px 0 2px;margin-top:10px;border-top:1px solid var(--bd)}
+.pl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.pl button{padding:4px 10px;border-radius:16px;font-size:14px}
+.pay{width:100%;background:var(--ok);color:var(--on);border-color:var(--ok);font-weight:700;padding:13px;font-size:17px}
+.pay.arm{background:var(--ac);border-color:var(--ac)}
+input,textarea{background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:9px;width:100%}
+.mr{display:flex;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--bd)}
+.mr input{width:auto;min-width:0}
+.msg{position:fixed;left:10px;right:10px;bottom:14px;background:var(--ac);color:var(--on);padding:10px;border-radius:10px;z-index:30;text-align:center}
+</style><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="tabs" id="tabs"></div>
+<div class="wrap" id="main"></div>
+<div id="sheet"></div>
+<div id="msg"></div>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyB6SZAQNCSmadrDp-m8FbohI9fwFGhLkV8",
+  authDomain: "nippon-58bfa.firebaseapp.com",
+  projectId: "nippon-58bfa",
+  storageBucket: "nippon-58bfa.firebasestorage.app",
+  messagingSenderId: "837999625728",
+  appId: "1:837999625728:web:3989553cd69d36e6a47ae5"
+};
+const DEF=[{name:"라면",price:3500,cat:"분식"},{name:"김밥",price:3000,cat:"분식"},{name:"떡볶이",price:4000,cat:"분식"},{name:"어묵",price:2000,cat:"분식"},{name:"콜라",price:1500,cat:"음료"},{name:"아이스크림",price:1000,cat:"간식"}];
+const N=22;
+let mrd=false,db=null,orders=[],menu=DEF,view="1",sel=null,draft=null,armed=false,ro=false,busy=false,pend={},cat="전체",q="",built=null,ex=null,ac=null;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const won=n=>(Number(n)||0).toLocaleString("ko-KR")+"원";
+const hm=t=>new Date(t).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+const qty=o=>o.qty||1,val=o=>(Number(o.price)||0)*qty(o),sum=a=>a.reduce((s,o)=>s+val(o),0);
+const open=(f,t)=>orders.filter(o=>o.status==="open"&&o.floor===f&&o.table===t);
+const $=id=>document.getElementById(id);
+function toast(t){$("msg").innerHTML='<div class="msg">'+esc(t)+'</div>';setTimeout(()=>$("msg").innerHTML="",3000)}
+
+function render(){
+  const o1=orders.filter(o=>o.status==="open");
+  const cnt=f=>new Set(o1.filter(o=>o.floor===f).map(o=>o.table)).size;
+  $("tabs").innerHTML=[["1","1층 ("+cnt(1)+")"],["2","2층 ("+cnt(2)+")"],["stat","누적"],["menu","메뉴 수정"]].map(([v,l])=>`<button data-a="v" data-v="${v}" class="${view===v?"on":""}">${l}</button>`).join("");
+  const m=$("main");
+  if(!db){m.innerHTML='<div class="card">데이터베이스에 연결되지 않았어요. 파일 안의 FIREBASE_CONFIG에 Firebase 설정값을 붙여넣었는지, 인터넷에 연결돼 있는지 확인해 주세요.</div>'}
+  else if(view==="1"||view==="2"){
+    const f=+view;let h=(ro?'<div class="card mu">보기 전용 계정이에요. 입력하려면 편집 권한이 필요해요.</div>':"")+'<div class="grid">';
+    for(let t=1;t<=N;t++){const l=open(f,t);h+=`<button class="t ${l.length?"occ":""}" data-a="t" data-t="${t}"><b>${t}</b><small>${l.length?won(sum(l)):"비어있음"}</small></button>`}
+    m.innerHTML=h+"</div>";
+  }else if(view==="stat"){m.innerHTML=statHtml()}
+  else if(view==="menu"){if(!draft){draft=menu.map(x=>({...x}));mrd=true}if(mrd){m.innerHTML=menuHtml();mrd=false}}
+  sheetRender();
+}
+function sheetRender(){
+  const s=$("sheet");
+  if(sel===null||(view!=="1"&&view!=="2")){s.innerHTML="";built=null;return}
+  const key=view+"-"+sel;
+  if(built!==key){
+    built=key;
+    s.innerHTML=`<div class="ov" data-a="ov"><div class="sh"><div class="row"><b style="font-size:20px">${view}층 ${sel}번 테이블</b><button data-a="close">닫기</button></div><div id="cur"></div><input id="q" placeholder="메뉴 검색" value="${esc(q)}"><div id="chips" class="chips"></div><div id="mg" class="mg"></div><div id="bar" class="bar"></div></div></div>`;
+    $("q").addEventListener("input",e=>{q=e.target.value;fillMenu()});
+  }
+  fillCur();fillMenu();fillBar();
+}
+function fillCur(){
+  const l=open(+view,sel),g={};
+  l.forEach(o=>{const x=g[o.name]=g[o.name]||{n:0,p:0};x.n+=qty(o);x.p+=val(o)});
+  const ks=Object.keys(g);
+  let h='<div class="card"><b>현재 주문</b>'+(ks.length?ks.map(k=>`<div class="row"><span>${esc(k)} × ${g[k].n}</span><span>${won(g[k].p)} <button data-a="dec" data-k="${esc(k)}">−</button></span></div>`).join(""):'<div class="mu">아직 없어요.</div>');
+  h+=`<div class="row"><span class="mu">합계</span><span class="big">${won(sum(l))}</span></div>`;
+  if(ks.length)h+=`<button class="pay ${armed?"arm":""}" data-a="pay">${armed?"한 번 더 누르면 계산 완료":"계산 완료"}</button>`;
+  $("cur").innerHTML=h+"</div>";
+}
+function fillMenu(){
+  const cats=[...new Set(menu.map(x=>x.cat||"기타"))];
+  if(cat!=="전체"&&!cats.includes(cat))cat="전체";
+  $("chips").innerHTML=menu.some(x=>x.cat)?["전체",...cats].map(c=>`<button class="${c===cat?"on":""}" data-a="cat" data-c="${esc(c)}">${esc(c)}</button>`).join(""):"";
+  const k=q.trim().toLowerCase();
+  const it=menu.map((x,i)=>({x,i})).filter(({x})=>(cat==="전체"||(x.cat||"기타")===cat)&&(!k||String(x.name).toLowerCase().includes(k)));
+  $("mg").innerHTML=it.length?it.map(({x,i})=>`<button data-a="add" data-i="${i}">${pend[i]?`<span class="bd">${pend[i]}</span>`:""}${esc(x.name)}<small>${won(x.price)}</small></button>`).join(""):'<div class="mu">메뉴가 없어요.</div>';
+}
+function fillBar(){
+  const ks=Object.keys(pend).filter(i=>pend[i]&&menu[i]);
+  const n=ks.reduce((s,i)=>s+pend[i],0),v=ks.reduce((s,i)=>s+pend[i]*(Number(menu[i].price)||0),0);
+  $("bar").innerHTML=ks.length?'<div class="pl">'+ks.map(i=>`<button data-a="pm" data-i="${i}">${esc(menu[i].name)} ×${pend[i]} −</button>`).join("")+`</div><div style="display:flex;gap:8px"><button data-a="clr">비우기</button><button class="pay" data-a="send">입력하기 · ${n}개 · ${won(v)}</button></div>`:'<div class="mu" style="text-align:center;padding:8px">메뉴를 눌러 담은 뒤 [입력하기]를 눌러 주세요.</div>';
+}
+function statHtml(){
+  const p=orders.filter(o=>o.status==="paid"),cs={},it={},fl={1:0,2:0};
+  p.forEach(o=>{const c=cs[o.checkoutId]=cs[o.checkoutId]||{id:o.checkoutId,f:o.floor,t:o.table,at:o.paidAt,v:0,d:[]};c.v+=val(o);c.d.push(o);const i=it[o.name]=it[o.name]||{n:0,v:0};i.n+=qty(o);i.v+=val(o);fl[o.floor]=(fl[o.floor]||0)+val(o)});
+  const list=Object.values(cs).sort((a,b)=>b.at-a.at),tot=sum(p),pend2=sum(orders.filter(o=>o.status==="open"));
+  return `<div class="card"><div class="mu">누적 매출</div><div class="big">${won(tot)}</div><div class="mu">계산 ${list.length}건 · 1층 ${won(fl[1])} · 2층 ${won(fl[2])}</div><div class="mu">아직 계산 전: ${won(pend2)}</div></div>`+
+  `<div class="card"><b>메뉴별 판매</b>`+(Object.keys(it).length?Object.entries(it).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<div class="row"><span>${esc(k)}</span><span>${v.n}개 · ${won(v.v)}</span></div>`).join(""):'<div class="mu">아직 없어요.</div>')+`</div>`+
+  `<div class="card"><b>계산 내역</b>`+(list.length?list.map(c=>{const open_=ex===c.id,g={};c.d.forEach(o=>{const x=g[o.name]=g[o.name]||{n:0,v:0};x.n+=qty(o);x.v+=val(o)});let h=`<div class="row" data-a="ex" data-c="${esc(c.id)}" style="cursor:pointer"><span>${hm(c.at)} · ${c.f}층 ${c.t}번</span><span>${won(c.v)} ${open_?"▲":"▼"}</span></div>`;if(open_)h+=`<div class="card" style="margin:0 0 8px">`+Object.keys(g).map(k=>`<div class="row"><span>${esc(k)} × ${g[k].n}</span><span>${won(g[k].v)} <button data-a="pdec" data-c="${esc(c.id)}" data-k="${esc(k)}">−</button> <button data-a="pinc" data-c="${esc(c.id)}" data-k="${esc(k)}">+</button></span></div>`).join("")+`<button class="pay ${ac===c.id?"arm":""}" style="margin-top:8px" data-a="cx" data-c="${esc(c.id)}">${ac===c.id?"한 번 더 누르면 계산 취소":"계산 취소 (테이블로 되돌리기)"}</button></div>`;return h}).join(""):'<div class="mu">아직 없어요.</div>')+`</div>`;
+}
+function menuHtml(){
+  return '<div class="card"><b>한꺼번에 붙여넣기</b><p class="mu" style="margin:4px 0">한 줄에 하나씩: 이름 가격 분류 (분류는 생략 가능)<br>예) 라면 3500 분식</p><textarea id="bulk" rows="5"></textarea><button data-a="bulk" style="margin-top:6px">목록에 추가</button></div>'+
+  '<div class="card"><b>메뉴 / 가격 / 분류</b>'+draft.map((x,i)=>`<div class="mr"><input data-k="name" data-i="${i}" value="${esc(x.name)}" placeholder="메뉴 이름" style="flex:2 1 120px"><input data-k="price" data-i="${i}" type="number" inputmode="numeric" value="${esc(x.price)}" style="flex:1 1 70px"><input data-k="cat" data-i="${i}" value="${esc(x.cat||"")}" placeholder="분류" style="flex:1 1 70px"><button data-a="mdel" data-i="${i}">삭제</button></div>`).join("")+
+  '</div><button data-a="madd">+ 메뉴 추가</button> <button class="pay" style="margin-top:10px" data-a="msave">저장</button><p class="mu">저장하면 모든 기기에 바로 반영돼요. 이미 입력된 주문의 가격은 바뀌지 않아요.</p>';
+}
+async function guard(fn){if(ro){toast("입력 권한이 없어요.");return false}try{await fn();return true}catch(e){toast("저장 실패: "+(e&&e.message||e));return false}}
+const hasPend=()=>Object.keys(pend).some(i=>pend[i]);
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,i=+b.dataset.i;
+  if(a==="ov"&&e.target!==b)return;
+  if(a==="v"){ex=null;ac=null;view=b.dataset.v;sel=null;armed=false;draft=null;pend={};render()}
+  else if(a==="t"){sel=+b.dataset.t;armed=false;pend={};q="";cat="전체";render()}
+  else if(a==="close"||a==="ov"){sel=null;armed=false;pend={};render()}
+  else if(a==="cat"){cat=b.dataset.c;fillMenu()}
+  else if(a==="add"){if(ro){toast("입력 권한이 없어요.");return}armed=false;pend[i]=(pend[i]||0)+1;fillCur();fillMenu();fillBar()}
+  else if(a==="pm"){pend[i]=(pend[i]||0)-1;if(pend[i]<=0)delete pend[i];fillMenu();fillBar()}
+  else if(a==="clr"){pend={};fillMenu();fillBar()}
+  else if(a==="send"){
+    if(busy)return;busy=true;const f=+view,t=sel,ks=Object.keys(pend).filter(k=>pend[k]&&menu[k]),base=Date.now();
+    const ok=await guard(async()=>{for(let j=0;j<ks.length;j++){const x=menu[ks[j]];await db.collection("orders").add({floor:f,table:t,name:x.name,price:Number(x.price)||0,qty:pend[ks[j]],status:"open",ts:base+j})}});
+    busy=false;if(ok){pend={};sel=null;toast(f+"층 "+t+"번 테이블에 입력했어요.");render()}}
+  else if(a==="dec"){armed=false;const l=open(+view,sel).filter(o=>o.name===b.dataset.k).sort((p,r)=>r.ts-p.ts)[0];
+    if(l)guard(()=>qty(l)>1?db.collection("orders").doc(l.id).update({qty:qty(l)-1}):db.collection("orders").doc(l.id).delete())}
+  else if(a==="pay"){
+    if(hasPend()){toast("담아둔 메뉴를 먼저 [입력하기]로 보내거나 비워 주세요.");return}
+    if(!armed){armed=true;fillCur();return}
+    if(busy)return;busy=true;const f=+view,t=sel,l=open(f,t),cid=Date.now()+"-"+f+"-"+t,at=Date.now();
+    await guard(async()=>{for(const o of l)await db.collection("orders").doc(o.id).update({status:"paid",checkoutId:cid,paidAt:at})});
+    busy=false;armed=false;sel=null;render()}
+  else if(a==="ex"){ex=ex===b.dataset.c?null:b.dataset.c;ac=null;render()}
+  else if(a==="pdec"||a==="pinc"){const l=orders.filter(o=>o.status==="paid"&&o.checkoutId===b.dataset.c&&o.name===b.dataset.k).sort((p,r)=>r.ts-p.ts)[0];
+    if(l)guard(()=>a==="pinc"?db.collection("orders").doc(l.id).update({qty:qty(l)+1}):qty(l)>1?db.collection("orders").doc(l.id).update({qty:qty(l)-1}):db.collection("orders").doc(l.id).delete())}
+  else if(a==="cx"){const cid=b.dataset.c;if(ac!==cid){ac=cid;render();return}
+    const l=orders.filter(o=>o.status==="paid"&&o.checkoutId===cid);
+    const ok=await guard(async()=>{for(const o of l)await db.collection("orders").doc(o.id).update({status:"open",checkoutId:null,paidAt:null})});
+    ac=null;ex=null;if(ok&&l[0])toast(l[0].floor+"층 "+l[0].table+"번 테이블로 되돌렸어요.");render()}
+  else if(a==="madd"){draft.push({name:"",price:0,cat:""});mrd=true;render()}
+  else if(a==="mdel"){draft.splice(i,1);mrd=true;render()}
+  else if(a==="bulk"){
+    const lines=$("bulk").value.split("\n");let n=0;
+    lines.forEach(ln=>{const m=ln.trim().match(/^(.+?)[\s,]+(\d[\d,]*)(?:[\s,]+(.*))?$/);if(m){draft.push({name:m[1].trim(),price:Number(m[2].replace(/,/g,""))||0,cat:(m[3]||"").trim()});n++}});
+    if(!n){toast("읽을 수 있는 줄이 없어요. 이름 가격 분류 순서로 적어 주세요.");return}
+    mrd=true;render();toast(n+"개를 추가했어요. 아래 [저장]을 눌러야 반영돼요.")}
+  else if(a==="msave"){const items=draft.filter(x=>String(x.name).trim()).map(x=>({name:String(x.name).trim(),price:Number(x.price)||0,cat:String(x.cat||"").trim()}));
+    await guard(async()=>{await db.collection("config").doc("menu").set({items});menu=items.length?items:DEF;draft=null;toast("메뉴를 저장했어요.");render()})}
+});
+document.addEventListener("input",e=>{const t=e.target;if(draft&&t.dataset.i!==undefined)draft[+t.dataset.i][t.dataset.k]=t.value});
+render();
+try{
+  if(!FIREBASE_CONFIG.projectId)throw new Error("설정 없음");
+  firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();render();
+  db.collection("orders").onSnapshot(s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>toast("연결 오류: "+e.message));
+  db.collection("config").doc("menu").onSnapshot(s=>{if(s.exists&&s.data().items&&s.data().items.length){menu=s.data().items;if(view!=="menu")render()}},()=>{});
+}catch(e){db=null;render()}
+</script>
+</body></html>
